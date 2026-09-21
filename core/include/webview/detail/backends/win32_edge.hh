@@ -71,6 +71,7 @@
 #include <objbase.h>
 #include <shlobj.h>
 #include <shlwapi.h>
+#include <shobjidl.h>
 
 #ifdef _MSC_VER
 #pragma comment(lib, "ole32.lib")
@@ -88,6 +89,7 @@ using msg_cb_t = std::function<void(const std::string)>;
 class webview2_com_handler
     : public ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler,
       public ICoreWebView2CreateCoreWebView2ControllerCompletedHandler,
+      public ICoreWebView2DownloadStartingEventHandler,
       public ICoreWebView2WebMessageReceivedEventHandler,
       public ICoreWebView2WebResourceResponseReceivedEventHandler,
       public ICoreWebView2PermissionRequestedEventHandler {
@@ -170,6 +172,7 @@ public:
     // Query for the ICoreWebView2_10 interface
     ICoreWebView2_10 *webview10{};
     if (SUCCEEDED(webview->QueryInterface(IID_PPV_ARGS(&webview10)))) {
+      webview10->add_DownloadStarting(this, &token);
       webview10->add_WebMessageReceived(this, &token);
       webview10->add_WebResourceResponseReceived(this, &token);
       webview10->add_PermissionRequested(this, &token);
@@ -179,6 +182,45 @@ public:
     }
 
     m_cb(controller, webview);
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE
+  Invoke(ICoreWebView2 * /*sender*/,
+         ICoreWebView2DownloadStartingEventArgs *args) {
+    // Show save file dialog
+    IFileSaveDialog *pFileSave;
+    HRESULT hr = CoCreateInstance(CLSID_FileSaveDialog, nullptr, CLSCTX_ALL,
+                                  IID_IFileSaveDialog,
+                                  reinterpret_cast<void **>(&pFileSave));
+    if (SUCCEEDED(hr)) {
+      LPWSTR resultFilePath;
+      args->get_ResultFilePath(&resultFilePath);
+      LPCWSTR fileName = PathFindFileNameW(resultFilePath);
+      pFileSave->SetFileName(fileName);
+      hr = pFileSave->Show(m_window);
+      if (SUCCEEDED(hr)) {
+        // Get the file name from the dialog
+        IShellItem *pItem{};
+        hr = pFileSave->GetResult(&pItem);
+        if (SUCCEEDED(hr)) {
+          PWSTR pszFilePath;
+          hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+          if (SUCCEEDED(hr)) {
+            // Set the download path
+            args->put_ResultFilePath(pszFilePath);
+            CoTaskMemFree(pszFilePath);
+            // Mark the event as handled. This tells WebView2 to not show the little
+            // "Download completed" dialog that pops up after a file finishes
+            args->put_Handled(TRUE);
+          }
+          pItem->Release();
+        }
+      } else {
+        args->put_Cancel(true);
+      }
+      CoTaskMemFree(resultFilePath);
+      pFileSave->Release();
+    }
     return S_OK;
   }
   HRESULT STDMETHODCALLTYPE

@@ -325,6 +325,124 @@ private:
     };
     g_signal_connect(WEBKIT_WEB_VIEW(m_webview), "decide-policy",
                      G_CALLBACK(on_view_decide_policy), this);
+
+#if GTK_MAJOR_VERSION >= 4
+    auto on_download_started = +[](WebKitNetworkSession *,
+                                   WebKitDownload *download, gpointer arg) {
+      auto destination = +[](WebKitDownload *download2, char *suggestedFilename,
+                             gpointer arg2) -> gboolean {
+        auto *w = static_cast<gtk_webkit_engine *>(arg2);
+#if GTK_CHECK_VERSION(4, 10, 0)
+        GtkFileDialog *dialog = gtk_file_dialog_new();
+        gtk_file_dialog_set_title(dialog, "Save File");
+        gtk_file_dialog_set_initial_name(dialog, suggestedFilename);
+        g_object_ref(download2); // required in async dialog
+
+        gtk_file_dialog_save(
+            dialog, GTK_WINDOW(w->m_window), nullptr,
+            [](GObject *source_object, GAsyncResult *res, gpointer user_data) {
+              GtkFileDialog *dialog = GTK_FILE_DIALOG(source_object);
+              WebKitDownload *download = WEBKIT_DOWNLOAD(user_data);
+              GError *error = nullptr;
+              GFile *file = gtk_file_dialog_save_finish(dialog, res, &error);
+              if (file != nullptr) {
+                char *destination = g_file_get_path(file);
+                webkit_download_set_destination(download, destination);
+                g_free(destination);
+                g_object_unref(file);
+              } else {
+                webkit_download_cancel(download);
+                if (error) {
+                  g_clear_error(&error);
+                }
+              }
+              g_object_unref(download); // release
+            },
+            download2);
+        g_object_unref(dialog);
+#else
+        // GTK < 4.10.0
+        // gtk_file_dialog_new() is available since gtk 4.10 (e.g. Ubuntu 24.04)
+        GtkFileChooserNative *native = gtk_file_chooser_native_new(
+            "Save File", GTK_WINDOW(w->m_window), GTK_FILE_CHOOSER_ACTION_SAVE,
+            "_Save", "_Cancel");
+
+        gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(native),
+                                          suggestedFilename);
+        g_object_ref(download2); // keep download alive until callback runs
+        g_signal_connect(native, "response",
+                         G_CALLBACK(+[](GtkNativeDialog *native_dialog,
+                                        gint response, gpointer user_data) {
+                           WebKitDownload *download =
+                               WEBKIT_DOWNLOAD(user_data);
+                           GtkFileChooserNative *native =
+                               GTK_FILE_CHOOSER_NATIVE(native_dialog);
+                           if (response == GTK_RESPONSE_ACCEPT) {
+                             GFile *file = gtk_file_chooser_get_file(
+                                 GTK_FILE_CHOOSER(native));
+                             if (file != nullptr) {
+                               char *dest = g_file_get_path(file);
+                               webkit_download_set_destination(download, dest);
+                               g_free(dest);
+                               g_object_unref(file);
+                             } else {
+                               webkit_download_cancel(download);
+                             }
+                           } else {
+                             webkit_download_cancel(download);
+                           }
+
+                           g_object_unref(download);
+                           g_object_unref(native_dialog);
+                         }),
+                         download2);
+
+        gtk_native_dialog_show(GTK_NATIVE_DIALOG(native));
+#endif // GTK < 4.10.0
+        return TRUE;
+      };
+      g_signal_connect(download, "decide-destination", G_CALLBACK(destination),
+                       arg);
+    };
+    WebKitNetworkSession *network_session =
+        webkit_web_view_get_network_session(WEBKIT_WEB_VIEW(m_webview));
+    g_signal_connect(network_session, "download-started",
+                     G_CALLBACK(on_download_started), this);
+
+#else
+    auto on_download_started = +[](WebKitWebContext *, WebKitDownload *download,
+                                   gpointer arg) {
+      // const gchar *dest = webkit_download_get_destination(download);
+      // qWarning("signal 'download-started' (destination='%s')", dest);
+      auto destination = +[](WebKitDownload *download2, char *suggestedFilename,
+                             gpointer arg2) -> gboolean {
+        auto *w = static_cast<gtk_webkit_engine *>(arg2);
+        GtkWidget *dialog = gtk_file_chooser_dialog_new(
+            "Save File", GTK_WINDOW(w->m_window), GTK_FILE_CHOOSER_ACTION_SAVE,
+            "_Cancel", GTK_RESPONSE_CANCEL, "_Save", GTK_RESPONSE_ACCEPT,
+            nullptr);
+        GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
+        gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
+        gtk_file_chooser_set_current_name(chooser, suggestedFilename);
+        if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+          gchar *destinationUri = gtk_file_chooser_get_uri(chooser);
+          webkit_download_set_destination(download2, destinationUri);
+          g_free(destinationUri);
+        } else {
+          webkit_download_cancel(download2);
+        }
+        gtk_widget_destroy(dialog);
+        return FALSE;
+      };
+
+      g_signal_connect(download, "decide-destination", G_CALLBACK(destination),
+                       arg);
+    };
+    WebKitWebContext *web_context =
+        webkit_web_view_get_context(WEBKIT_WEB_VIEW(m_webview));
+    g_signal_connect(web_context, "download-started",
+                     G_CALLBACK(on_download_started), this);
+#endif
   }
 
   void window_settings(bool debug) {

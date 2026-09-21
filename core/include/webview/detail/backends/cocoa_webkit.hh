@@ -374,6 +374,7 @@ private:
     if (!cls) {
       cls = objc_allocateClassPair(objc::get_class("NSObject"), class_name, 0);
       class_addProtocol(cls, objc_getProtocol("WKNavigationDelegate"));
+      class_addProtocol(cls, objc_getProtocol("WKDownloadDelegate"));
       class_addMethod(
           cls,
           objc::selector(
@@ -408,6 +409,56 @@ private:
             // NSInvocation_invoke(invocation);
           }),
           "v@:@@?");
+      class_addMethod(
+          cls, objc::selector("webView:navigationAction:didBecomeDownload:"),
+          (IMP)(+[](id self, SEL, id webView, id navigationAction,
+                    id download) {
+            // webView:             WKWebView*
+            // navigationAction:    WKNavigationAction*
+            // download:            WKDownload*
+            (void)(self);
+            (void)(navigationAction);
+            // set delegate for save dialog
+            WKDownload_set_delegate(download,
+                                    WKWebView_get_NavigationDelegate(webView));
+          }),
+          "v@:@@@");
+      class_addMethod(
+          cls,
+          objc::selector("download:decideDestinationUsingResponse:"
+                         "suggestedFilename:completionHandler:"),
+          (IMP)(+[](id self, SEL, id download, id response,
+                    id suggestedFilename, id completionHandler) {
+            // download:            WKDownload*
+            // response:            NSURLResponse*
+            // suggestedFilename:   NSString*
+            // completionHandler:   void (^)(NSURL* destination)
+            (void)(download);
+            (void)(response);
+            objc::autoreleasepool arp;
+
+            auto panel{NSSavePanel_savePanel()};
+            NSSavePanel_setNameFieldStringValue(panel, suggestedFilename);
+
+            const cocoa_wkwebview_engine *engine = get_associated_webview(self);
+            // get actual window of view
+            id window = engine ? WKWebView_window(engine->m_webview) : id{};
+            // if there is a window, show dialog as sheet
+            NSModalResponse modal_response =
+                window ? NSSavePanel_runModalForWindow(panel, window)
+                       : NSSavePanel_runModal(panel);
+            id url = modal_response == NSModalResponseOK
+                         ? NSSavePanel_get_URL(panel)
+                         : nullptr;
+
+            // Invoke the completion handler block.
+            auto sig{NSMethodSignature_signatureWithObjCTypes("v@?@")};
+            auto invocation{NSInvocation_invocationWithMethodSignature(sig)};
+            NSInvocation_set_target(invocation, completionHandler);
+            NSInvocation_setArgument(invocation, &url, 1);
+            NSInvocation_invoke(invocation);
+          }),
+          "v@:@@@?");
       objc_registerClassPair(cls);
     }
     return objc::Class_new(cls);

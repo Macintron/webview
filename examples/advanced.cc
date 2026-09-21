@@ -11,6 +11,9 @@ constexpr const auto html =
   .message { color: red; margin-top: 8px; }
 </style>
 
+  <h2>Download</h2>
+  <button id="download">Download a document</button>
+
   <h2>Navigation Error</h2>
   <button onclick="window.location.href='https://github.com/navigation_error';">
     navigation_error_callback
@@ -25,6 +28,23 @@ constexpr const auto html =
   function showMessage(msg) {
     document.getElementById('message').textContent = msg;
   }
+</script>
+
+<script type="module">
+  const getElements = ids => Object.assign({}, ...ids.map(
+    id => ({ [id]: document.getElementById(id) })));
+  const ui = getElements([
+    "download",
+  ]);
+  ui.download.addEventListener("click", async () => {
+    const blob = new Blob(['Hello world'], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'hello.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
 </script>
 )html";
 

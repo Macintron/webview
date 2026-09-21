@@ -23,8 +23,8 @@
  * SOFTWARE.
  */
 
-#ifndef WEBVIEW_PLATFORM_DARWIN_COCOA_NSSAVEPANEL_HH
-#define WEBVIEW_PLATFORM_DARWIN_COCOA_NSSAVEPANEL_HH
+#ifndef WEBVIEW_PLATFORM_DARWIN_WEBKIT_WKDOWNLOAD_HH
+#define WEBVIEW_PLATFORM_DARWIN_WEBKIT_WKDOWNLOAD_HH
 
 #if defined(__cplusplus) && !defined(WEBVIEW_HEADER)
 
@@ -33,49 +33,21 @@
 #if defined(WEBVIEW_PLATFORM_DARWIN) && defined(WEBVIEW_COCOA)
 
 #include "../objc/objc.hh"
-#include "NSApplication.hh"
+
+#include <CoreGraphics/CoreGraphics.h>
 
 namespace webview {
 namespace detail {
-namespace cocoa {
+namespace webkit {
 
-inline id NSSavePanel_savePanel() {
-  return objc::msg_send<id>(objc::get_class("NSSavePanel"),
-                            objc::selector("savePanel"));
+inline void WKDownload_set_delegate(id self, id delegate) {
+  objc::msg_send<void>(self, objc::selector("setDelegate:"), delegate);
 }
 
-inline NSModalResponse NSSavePanel_setNameFieldStringValue(id self, id value) {
-  return objc::msg_send<NSModalResponse>(
-      self, objc::selector("setNameFieldStringValue:"), value);
-}
-
-inline NSModalResponse NSSavePanel_runModal(id self) {
-  return objc::msg_send<NSModalResponse>(self, objc::selector("runModal"));
-}
-
-inline NSModalResponse NSSavePanel_runModalForWindow(id self, id window) {
-  objc::msg_send<void>(
-      self, objc::selector("beginSheetModalForWindow:completionHandler:"),
-      window, ^(id result) {
-        objc::msg_send<void>(
-            objc::msg_send<id>(objc::get_class("NSApplication"),
-                               objc::selector("sharedApplication")),
-            objc::selector("stopModalWithCode:"), result);
-      });
-  return objc::msg_send<NSModalResponse>(
-      objc::msg_send<id>(objc::get_class("NSApplication"),
-                         objc::selector("sharedApplication")),
-      objc::selector("runModalForWindow:"), self);
-}
-
-inline id NSSavePanel_get_URL(id self) {
-  return objc::msg_send<id>(self, objc::selector("URL"));
-}
-
-} // namespace cocoa
+} // namespace webkit
 } // namespace detail
 } // namespace webview
 
 #endif // defined(WEBVIEW_PLATFORM_DARWIN) && defined(WEBVIEW_COCOA)
 #endif // defined(__cplusplus) && !defined(WEBVIEW_HEADER)
-#endif // WEBVIEW_PLATFORM_DARWIN_COCOA_NSSAVEPANEL_HH
+#endif // WEBVIEW_PLATFORM_DARWIN_WEBKIT_WKDOWNLOAD_HH

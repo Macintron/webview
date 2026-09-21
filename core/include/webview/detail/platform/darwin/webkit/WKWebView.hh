@@ -64,6 +64,10 @@ inline void WKWebView_set_UIDelegate(id self, id ui_delegate) {
   objc::msg_send<void>(self, objc::selector("setUIDelegate:"), ui_delegate);
 }
 
+inline id WKWebView_get_NavigationDelegate(id self) {
+  return objc::msg_send<id>(self, objc::selector("navigationDelegate"));
+}
+
 inline void WKWebView_set_NavigationDelegate(id self, id navigation_delegate) {
   objc::msg_send<void>(self, objc::selector("setNavigationDelegate:"),
                        navigation_delegate);
