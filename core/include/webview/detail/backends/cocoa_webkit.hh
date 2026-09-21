@@ -226,6 +226,74 @@ protected:
 
     return {};
   }
+  noresult add_cookie_impl(const cookie_data &cookieData) override {
+    objc::autoreleasepool arp;
+    std::vector<id> keyIds{
+        NSHTTPCookie::NSHTTPCookieVersion(),
+        NSHTTPCookie::NSHTTPCookieName(),
+        NSHTTPCookie::NSHTTPCookieValue(),
+        NSHTTPCookie::NSHTTPCookieDomain(),
+        NSHTTPCookie::NSHTTPCookiePath(),
+        NSHTTPCookie::NSHTTPCookieSameSitePolicy(),
+    };
+    std::vector<id> valIds{
+        NSString_stringWithUTF8String("0"),
+        NSString_stringWithUTF8String(cookieData.get_name()),
+        NSString_stringWithUTF8String(cookieData.get_value()),
+        NSString_stringWithUTF8String(cookieData.get_domain()),
+        NSString_stringWithUTF8String(cookieData.get_path()),
+        NSString_stringWithUTF8String(cookieData.get_sameSiteString()),
+    };
+    if (cookieData.get_maxage() == -1) {
+      keyIds.push_back(NSHTTPCookie::NSHTTPCookieDiscard());
+      valIds.push_back(NSString_stringWithUTF8String("TRUE"));
+    } else {
+      keyIds.push_back(NSHTTPCookie::NSHTTPCookieMaximumAge());
+      valIds.push_back(NSNumber_numberWithInt(cookieData.get_maxage()));
+    }
+    if (cookieData.get_httpOnly()) {
+      keyIds.push_back(NSHTTPCookie::NSHTTPCookieHTTPOnly());
+      valIds.push_back(NSString_stringWithUTF8String("TRUE"));
+    };
+    if (cookieData.get_secure()) {
+      keyIds.push_back(NSHTTPCookie::NSHTTPCookieSecure());
+      valIds.push_back(NSString_stringWithUTF8String("TRUE"));
+    };
+
+    id props = NSDictionary_dictionaryWithObjects(valIds, keyIds);
+    id cookie = NSHTTPCookie_cookieWithProperties(props);
+    id config = WKWebView_get_configuration(m_webview);
+    id dataStore = WKWebViewConfiguration_get_websiteDataStore(config);
+    id cookieStore = WKWebsiteDataStore_get_httpCookieStore(dataStore);
+    WKHTTPCookieStore_setCookie(cookieStore, cookie);
+    return {};
+  }
+  noresult delete_cookie_impl(const cookie_data &cookieData) override {
+    objc::autoreleasepool arp;
+    id config = WKWebView_get_configuration(m_webview);
+    id dataStore = WKWebViewConfiguration_get_websiteDataStore(config);
+    id cookieStore = WKWebsiteDataStore_get_httpCookieStore(dataStore);
+    WKHTTPCookieStore_getAllCookies(
+        cookieStore, [cookieData, cookieStore](id cookies) {
+          if (cookies == nullptr) {
+            return;
+          }
+          NSUInteger count = NSArray_count(cookies);
+          for (NSUInteger i = 0; i < count; ++i) {
+            id cookie = NSArray_objectAtIndex(cookies, i);
+            id name = NSHTTPCookie_get_name(cookie);
+            id domain = NSHTTPCookie_get_domain(cookie);
+            const bool nameMatch = NSString_isEqualToString(
+                name, NSString_stringWithUTF8String(cookieData.get_name()));
+            const bool domainMatch = NSString_isEqualToString(
+                domain, NSString_stringWithUTF8String(cookieData.get_domain()));
+            if (nameMatch && domainMatch) {
+              WKHTTPCookieStore_deleteCookie(cookieStore, cookie);
+            }
+          }
+        });
+    return {};
+  }
   noresult set_html_impl(const std::string &html) override {
     objc::autoreleasepool arp;
     WKWebView_loadHTMLString(m_webview, NSString_stringWithUTF8String(html),

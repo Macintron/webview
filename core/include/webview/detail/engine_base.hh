@@ -32,6 +32,7 @@
 #include "../types.h"
 #include "../types.hh"
 #include "callbacks.hh"
+#include "cookie.hh"
 #include "json.hh"
 #include "user_script.hh"
 
@@ -164,6 +165,17 @@ window.__webview__.onUnbind(" +
 
   noresult set_html(const std::string &html) { return set_html_impl(html); }
 
+  noresult set_cookie(const std::string &cookie) {
+    cookie_data data(cookie);
+    if (data.isValidForAdd()) {
+      return add_cookie_impl(data);
+    }
+    if (data.forDelete()) {
+      return delete_cookie_impl(data);
+    }
+    return error_info{WEBVIEW_ERROR_INVALID_ARGUMENT, "invalid cookie format"};
+  }
+
   noresult init(const std::string &js) {
     add_user_script(js);
     return {};
@@ -183,6 +195,8 @@ protected:
   virtual noresult set_size_impl(int width, int height,
                                  webview_hint_t hints) = 0;
   virtual noresult set_html_impl(const std::string &html) = 0;
+  virtual noresult add_cookie_impl(const cookie_data &cookieData) = 0;
+  virtual noresult delete_cookie_impl(const cookie_data &cookieData) = 0;
   virtual noresult eval_impl(const std::string &js) = 0;
 
   virtual user_script *add_user_script(const std::string &js) {

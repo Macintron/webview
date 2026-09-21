@@ -18,6 +18,7 @@ extern void webview_set_title(webview_t w, const char *title);
 extern void webview_set_size(webview_t w, int width, int height, webview_hint_t hints);
 extern void webview_navigate(webview_t w, const char *url);
 extern void webview_set_html(webview_t w, const char *html);
+extern void webview_set_cookie(webview_t w, const char *cookie);
 extern void webview_init(webview_t w, const char *js);
 extern void webview_eval(webview_t w, const char *js);
 extern void webview_bind(webview_t w, const char *name, void (*fn)(const char *seq, const char *req, void *arg), void *arg);

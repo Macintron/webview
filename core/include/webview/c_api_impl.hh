@@ -198,6 +198,15 @@ WEBVIEW_API webview_error_t webview_set_html(webview_t w, const char *html) {
   return api_filter([=] { return cast_to_webview(w)->set_html(html); });
 }
 
+WEBVIEW_API webview_error_t webview_set_cookie(webview_t w,
+                                               const char *cookie) {
+  using namespace webview::detail;
+  if (!cookie) {
+    return WEBVIEW_ERROR_INVALID_ARGUMENT;
+  }
+  return api_filter([=] { return cast_to_webview(w)->set_cookie(cookie); });
+}
+
 WEBVIEW_API webview_error_t webview_init(webview_t w, const char *js) {
   using namespace webview::detail;
   if (!js) {

@@ -57,6 +57,7 @@
 
 #include <atomic>
 #include <cstdlib>
+#include <ctime>
 #include <functional>
 #include <list>
 #include <memory>
@@ -562,6 +563,72 @@ protected:
 
   noresult set_html_impl(const std::string &html) override {
     m_webview->NavigateToString(widen_string(html).c_str());
+    return {};
+  }
+
+  noresult add_cookie_impl(const cookie_data &cookieData) override {
+    // Query for the ICoreWebView2_10 interface
+    ICoreWebView2_10 *webview10{};
+    HRESULT res = m_webview->QueryInterface(IID_PPV_ARGS(&webview10));
+    if (SUCCEEDED(res)) {
+      ICoreWebView2CookieManager *cookieManager{};
+      res = webview10->get_CookieManager(&cookieManager);
+      if (SUCCEEDED(res)) {
+        ICoreWebView2Cookie *cookie{};
+        res = cookieManager->CreateCookie(
+            widen_string(cookieData.get_name()).c_str(),
+            widen_string(cookieData.get_value()).c_str(),
+            widen_string(cookieData.get_domain()).c_str(),
+            widen_string(cookieData.get_path()).c_str(), &cookie);
+        if (SUCCEEDED(res)) {
+          cookie->put_IsHttpOnly(cookieData.get_httpOnly());
+          cookie->put_IsSecure(cookieData.get_secure());
+          const double expireValue = cookieData.get_maxage() == -1
+                                         ? -1
+                                         : static_cast<double>(time(nullptr)) +
+                                               cookieData.get_maxage();
+          cookie->put_Expires(expireValue);
+          switch (cookieData.get_sameSite()) {
+          case cookie_data::same_site_values::SAME_SITE_STRICT:
+            cookie->put_SameSite(COREWEBVIEW2_COOKIE_SAME_SITE_KIND_STRICT);
+            break;
+          case cookie_data::same_site_values::SAME_SITE_LAX:
+            cookie->put_SameSite(COREWEBVIEW2_COOKIE_SAME_SITE_KIND_LAX);
+            break;
+          default:
+            cookie->put_SameSite(COREWEBVIEW2_COOKIE_SAME_SITE_KIND_NONE);
+            break;
+          }
+          res = cookieManager->AddOrUpdateCookie(cookie);
+          cookie->Release();
+        }
+        cookieManager->Release();
+      }
+      webview10->Release();
+    }
+    if (FAILED(res)) {
+      return error_info{WEBVIEW_ERROR_UNSPECIFIED, "set_cookie failed"};
+    }
+    return {};
+  }
+
+  noresult delete_cookie_impl(const cookie_data &cookieData) override {
+    ICoreWebView2_10 *webview10{};
+    HRESULT res = m_webview->QueryInterface(IID_PPV_ARGS(&webview10));
+    if (SUCCEEDED(res)) {
+      ICoreWebView2CookieManager *cookieManager{};
+      res = webview10->get_CookieManager(&cookieManager);
+      if (SUCCEEDED(res)) {
+        cookieManager->DeleteCookiesWithDomainAndPath(
+            widen_string(cookieData.get_name()).c_str(),
+            widen_string(cookieData.get_domain()).c_str(), L"");
+        cookieManager->Release();
+      }
+      webview10->Release();
+    }
+    if (FAILED(res)) {
+      return error_info{WEBVIEW_ERROR_UNSPECIFIED, "delete_cookie failed"};
+    }
     return {};
   }
 

@@ -23,8 +23,8 @@
  * SOFTWARE.
  */
 
-#ifndef WEBVIEW_PLATFORM_DARWIN_COCOA_NSNUMBER_HH
-#define WEBVIEW_PLATFORM_DARWIN_COCOA_NSNUMBER_HH
+#ifndef WEBVIEW_PLATFORM_DARWIN_COCOA_NSHTTPCOOKIE_HH
+#define WEBVIEW_PLATFORM_DARWIN_COCOA_NSHTTPCOOKIE_HH
 
 #if defined(__cplusplus) && !defined(WEBVIEW_HEADER)
 
@@ -33,20 +33,50 @@
 #if defined(WEBVIEW_PLATFORM_DARWIN) && defined(WEBVIEW_COCOA)
 
 #include "../objc/objc.hh"
+#include "NSString.hh"
 
 namespace webview {
 namespace detail {
 namespace cocoa {
 
-inline id NSNumber_numberWithBool(bool value) {
-  return objc::msg_send<id>(objc::get_class("NSNumber"),
-                            objc::selector("numberWithBool:"),
-                            static_cast<BOOL>(value));
+namespace NSHTTPCookie {
+inline id NSHTTPCookieVersion() {
+  return NSString_stringWithUTF8String("Version");
 }
+inline id NSHTTPCookieName() { return NSString_stringWithUTF8String("Name"); }
+inline id NSHTTPCookieValue() { return NSString_stringWithUTF8String("Value"); }
+inline id NSHTTPCookieDomain() {
+  return NSString_stringWithUTF8String("Domain");
+}
+inline id NSHTTPCookiePath() { return NSString_stringWithUTF8String("Path"); }
+inline id NSHTTPCookieHTTPOnly() {
+  return NSString_stringWithUTF8String("HttpOnly");
+}
+inline id NSHTTPCookieSameSitePolicy() {
+  return NSString_stringWithUTF8String("SameSite");
+}
+inline id NSHTTPCookieMaximumAge() {
+  return NSString_stringWithUTF8String("Max-Age");
+}
+inline id NSHTTPCookieDiscard() {
+  return NSString_stringWithUTF8String("Discard");
+}
+inline id
+NSHTTPCookieSecure() { // only YES is accepted (FALSE sets option as well...)
+  return NSString_stringWithUTF8String("Secure");
+}
+} // namespace NSHTTPCookie
 
-inline id NSNumber_numberWithInt(int number) {
-  return objc::msg_send<id>(objc::get_class("NSNumber"),
-                            objc::selector("numberWithInt:"), number);
+inline id NSHTTPCookie_cookieWithProperties(id cookieProperties) {
+  return objc::msg_send<id>(objc::get_class("NSHTTPCookie"),
+                            objc::selector("cookieWithProperties:"),
+                            cookieProperties);
+}
+inline id NSHTTPCookie_get_name(id self) {
+  return objc::msg_send<id>(self, objc::selector("name"));
+}
+inline id NSHTTPCookie_get_domain(id self) {
+  return objc::msg_send<id>(self, objc::selector("domain"));
 }
 
 } // namespace cocoa
@@ -55,4 +85,4 @@ inline id NSNumber_numberWithInt(int number) {
 
 #endif // defined(WEBVIEW_PLATFORM_DARWIN) && defined(WEBVIEW_COCOA)
 #endif // defined(__cplusplus) && !defined(WEBVIEW_HEADER)
-#endif // WEBVIEW_PLATFORM_DARWIN_COCOA_NSNUMBER_HH
+#endif // WEBVIEW_PLATFORM_DARWIN_COCOA_NSHTTPCOOKIE_HH

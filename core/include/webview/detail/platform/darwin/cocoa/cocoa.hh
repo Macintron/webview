@@ -34,8 +34,11 @@
 
 // IWYU pragma: begin_exports
 #include "NSApplication.hh"
+#include "NSArray.hh"
 #include "NSBundle.hh"
+#include "NSDictionary.hh"
 #include "NSEvent.hh"
+#include "NSHTTPCookie.hh"
 #include "NSInvocation.hh"
 #include "NSLog.hh"
 #include "NSMethodSignature.hh"

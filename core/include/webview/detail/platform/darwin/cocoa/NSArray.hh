@@ -23,8 +23,8 @@
  * SOFTWARE.
  */
 
-#ifndef WEBVIEW_PLATFORM_DARWIN_COCOA_NSNUMBER_HH
-#define WEBVIEW_PLATFORM_DARWIN_COCOA_NSNUMBER_HH
+#ifndef WEBVIEW_PLATFORM_DARWIN_COCOA_NSARRAY_HH
+#define WEBVIEW_PLATFORM_DARWIN_COCOA_NSARRAY_HH
 
 #if defined(__cplusplus) && !defined(WEBVIEW_HEADER)
 
@@ -38,15 +38,12 @@ namespace webview {
 namespace detail {
 namespace cocoa {
 
-inline id NSNumber_numberWithBool(bool value) {
-  return objc::msg_send<id>(objc::get_class("NSNumber"),
-                            objc::selector("numberWithBool:"),
-                            static_cast<BOOL>(value));
+inline NSUInteger NSArray_count(id self) {
+  return objc::msg_send<NSUInteger>(self, objc::selector("count"));
 }
 
-inline id NSNumber_numberWithInt(int number) {
-  return objc::msg_send<id>(objc::get_class("NSNumber"),
-                            objc::selector("numberWithInt:"), number);
+inline id NSArray_objectAtIndex(id self, NSUInteger index) {
+  return objc::msg_send<id>(self, objc::selector("objectAtIndex:"), index);
 }
 
 } // namespace cocoa
@@ -55,4 +52,4 @@ inline id NSNumber_numberWithInt(int number) {
 
 #endif // defined(WEBVIEW_PLATFORM_DARWIN) && defined(WEBVIEW_COCOA)
 #endif // defined(__cplusplus) && !defined(WEBVIEW_HEADER)
-#endif // WEBVIEW_PLATFORM_DARWIN_COCOA_NSNUMBER_HH
+#endif // WEBVIEW_PLATFORM_DARWIN_COCOA_NSARRAY_HH

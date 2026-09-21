@@ -88,9 +88,13 @@ inline id WKWebView_loadRequest(id self, id request) {
 
 inline void WKWebView_evaluateJavaScript(id self, id js_string,
                                          const void *completion_handler) {
-  return objc::msg_send<void>(
-      self, objc::selector("evaluateJavaScript:completionHandler:"), js_string,
-      completion_handler);
+  objc::msg_send<void>(self,
+                       objc::selector("evaluateJavaScript:completionHandler:"),
+                       js_string, completion_handler);
+}
+
+inline id WKWebView_get_configuration(id self) {
+  return objc::msg_send<id>(self, objc::selector("configuration"));
 }
 
 inline void WKWebView_set_inspectable(id self, bool inspectable) {

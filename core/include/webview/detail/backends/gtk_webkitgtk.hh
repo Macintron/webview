@@ -50,6 +50,7 @@
 #include "../engine_base.hh"
 #include "../platform/linux/gtk/compat.hh"
 #include "../platform/linux/webkitgtk/compat.hh"
+#include "../platform/linux/webkitgtk/cookies.hh"
 #include "../platform/linux/webkitgtk/dmabuf.hh"
 #include "../user_script.hh"
 
@@ -68,6 +69,7 @@
 #elif GTK_MAJOR_VERSION >= 3
 
 #include <JavaScriptCore/JavaScript.h>
+#include <libsoup/soup.h>
 #include <webkit2/webkit2.h>
 
 #endif
@@ -203,6 +205,16 @@ protected:
     webkit_web_view_load_html(WEBKIT_WEB_VIEW(m_webview), html.c_str(),
                               nullptr);
     return {};
+  }
+
+  noresult add_cookie_impl(const cookie_data &cookieData) override {
+    return webkitgtk_cookies::add_cookie(WEBKIT_WEB_VIEW(m_webview),
+                                         cookieData);
+  }
+
+  noresult delete_cookie_impl(const cookie_data &cookieData) override {
+    return webkitgtk_cookies::delete_cookie(WEBKIT_WEB_VIEW(m_webview),
+                                            cookieData);
   }
 
   noresult eval_impl(const std::string &js) override {

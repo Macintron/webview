@@ -23,8 +23,8 @@
  * SOFTWARE.
  */
 
-#ifndef WEBVIEW_PLATFORM_DARWIN_COCOA_NSNUMBER_HH
-#define WEBVIEW_PLATFORM_DARWIN_COCOA_NSNUMBER_HH
+#ifndef WEBVIEW_PLATFORM_DARWIN_COCOA_NSDICTIONARY_HH
+#define WEBVIEW_PLATFORM_DARWIN_COCOA_NSDICTIONARY_HH
 
 #if defined(__cplusplus) && !defined(WEBVIEW_HEADER)
 
@@ -34,19 +34,21 @@
 
 #include "../objc/objc.hh"
 
+#include <vector>
+
 namespace webview {
 namespace detail {
 namespace cocoa {
 
-inline id NSNumber_numberWithBool(bool value) {
-  return objc::msg_send<id>(objc::get_class("NSNumber"),
-                            objc::selector("numberWithBool:"),
-                            static_cast<BOOL>(value));
-}
-
-inline id NSNumber_numberWithInt(int number) {
-  return objc::msg_send<id>(objc::get_class("NSNumber"),
-                            objc::selector("numberWithInt:"), number);
+inline id NSDictionary_dictionaryWithObjects(const std::vector<id> &values,
+                                             const std::vector<id> &keys) {
+  if (values.size() != keys.size()) {
+    return {};
+  }
+  return objc::msg_send<id>(
+      objc::get_class("NSDictionary"),
+      objc::selector("dictionaryWithObjects:forKeys:count:"), values.data(),
+      keys.data(), static_cast<NSUInteger>(keys.size()));
 }
 
 } // namespace cocoa
@@ -55,4 +57,4 @@ inline id NSNumber_numberWithInt(int number) {
 
 #endif // defined(WEBVIEW_PLATFORM_DARWIN) && defined(WEBVIEW_COCOA)
 #endif // defined(__cplusplus) && !defined(WEBVIEW_HEADER)
-#endif // WEBVIEW_PLATFORM_DARWIN_COCOA_NSNUMBER_HH
+#endif // WEBVIEW_PLATFORM_DARWIN_COCOA_NSDICTIONARY_HH

@@ -100,6 +100,8 @@ int main() {
         },
         nullptr);
 
+    // webview_set_cookie() does not work with loaded html, a server connection is required
+
     w.set_html(html);
     w.run();
   } catch (const webview::exception &e) {
