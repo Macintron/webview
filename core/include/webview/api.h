@@ -238,6 +238,21 @@ WEBVIEW_API webview_error_t webview_return(webview_t w, const char *id,
                                            int status, const char *result);
 
 /**
+ * Register a function to get notified about navigation requests.
+ * arg is the context provided while setting the callback.
+ * triggeredByReload true if triggered by Reload context menu, Browser UI or
+ * JavaScript (`location.reload()`). On Windows always false.
+ * return false to abort the navigation, true accepts the url.
+ *
+ * @param w The webview instance.
+ * @param fn Callback function.
+ * @param arg User argument.
+ */
+WEBVIEW_API webview_error_t webview_set_decide_policy_navigation_callback(
+    webview_t w, int (*fn)(const char *url, int triggeredByReload, void *arg),
+    void *arg);
+
+/**
  * Register a function to get notified about navigation errors.
  * In the callback, httpStatusCode could be 403 (forbidden).
  * arg is the context provided while setting the callback.

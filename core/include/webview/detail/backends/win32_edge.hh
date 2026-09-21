@@ -90,6 +90,7 @@ class webview2_com_handler
     : public ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler,
       public ICoreWebView2CreateCoreWebView2ControllerCompletedHandler,
       public ICoreWebView2DownloadStartingEventHandler,
+      public ICoreWebView2NavigationStartingEventHandler,
       public ICoreWebView2WebMessageReceivedEventHandler,
       public ICoreWebView2WebResourceResponseReceivedEventHandler,
       public ICoreWebView2PermissionRequestedEventHandler {
@@ -173,6 +174,7 @@ public:
     ICoreWebView2_10 *webview10{};
     if (SUCCEEDED(webview->QueryInterface(IID_PPV_ARGS(&webview10)))) {
       webview10->add_DownloadStarting(this, &token);
+      webview10->add_NavigationStarting(this, &token);
       webview10->add_WebMessageReceived(this, &token);
       webview10->add_WebResourceResponseReceived(this, &token);
       webview10->add_PermissionRequested(this, &token);
@@ -220,6 +222,20 @@ public:
       }
       CoTaskMemFree(resultFilePath);
       pFileSave->Release();
+    }
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE
+  Invoke(ICoreWebView2 * /*sender*/,
+         ICoreWebView2NavigationStartingEventArgs *args) {
+    LPWSTR uriw{};
+    args->get_Uri(&uriw);
+    const std::string uri = narrow_string(uriw);
+    CoTaskMemFree(uriw);
+    if (m_decide_policy_navigation_handler &&
+        // origin of refresh cannot be detected, always false!
+        !m_decide_policy_navigation_handler(uri.c_str(), FALSE)) {
+      args->put_Cancel(true);
     }
     return S_OK;
   }
@@ -275,6 +291,12 @@ public:
   void set_attempt_handler(std::function<HRESULT()> attempt_handler) noexcept {
     m_attempt_handler = attempt_handler;
   }
+  // Set the function that will decide about navigation
+  void set_decide_policy_navigation_handler(
+      std::function<bool(const char *, bool)>
+          decide_policy_navigation_handler) noexcept {
+    m_decide_policy_navigation_handler = decide_policy_navigation_handler;
+  }
   // Set the function that will be called on navigation error events.
   void set_navigation_error_handler(
       std::function<bool(int)> navigation_error_handler) noexcept {
@@ -315,6 +337,7 @@ private:
   webview2_com_handler_cb_t m_cb;
   std::atomic<ULONG> m_ref_count{1};
   std::function<HRESULT()> m_attempt_handler;
+  std::function<bool(const char *, bool)> m_decide_policy_navigation_handler;
   std::function<bool(int)> m_navigation_error_handler;
   unsigned int m_max_attempts = 60;
   unsigned int m_sleep_ms = 200;
@@ -840,6 +863,11 @@ private:
       return m_webview2_loader.create_environment_with_options(
           nullptr, userDataFolder, nullptr, m_com_handler);
     });
+    m_com_handler->set_decide_policy_navigation_handler(
+        [this](const char *url, bool triggeredByReload) {
+          return get_decide_policy_navigation_callback().call<true>(
+              url, triggeredByReload);
+        });
     m_com_handler->set_navigation_error_handler([this](int httpErrorCode) {
       return get_navigation_error_callback().call<false>(httpErrorCode);
     });

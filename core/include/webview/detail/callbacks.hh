@@ -80,6 +80,10 @@ private:
   void *m_arg{};
 };
 
+using decide_policy_navigation_t =
+    std::function<bool(const char *url, bool, void *arg)>;
+using decide_policy_navigation_ctx_t =
+    callback_ctx_t<bool(const char *url, bool, void *arg)>;
 using navigation_error_t = std::function<bool(int httpErrorCode, void *arg)>;
 using navigation_error_ctx_t =
     callback_ctx_t<bool(int httpErrorCode, void *arg)>;

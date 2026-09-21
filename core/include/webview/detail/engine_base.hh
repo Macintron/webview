@@ -130,6 +130,16 @@ window.__webview__.onUnbind(" +
         result.empty() ? "undefined" : json_escape(result)));
   }
 
+  noresult set_decide_policy_navigation_callback(decide_policy_navigation_t fn,
+                                                 void *arg) {
+    m_decide_policy_navigation_cb = decide_policy_navigation_ctx_t(fn, arg);
+    return {};
+  }
+  const decide_policy_navigation_ctx_t &
+  get_decide_policy_navigation_callback() const {
+    return m_decide_policy_navigation_cb;
+  }
+
   noresult set_navigation_error_callback(navigation_error_t fn, void *arg) {
     m_navigation_error_cb = navigation_error_ctx_t(fn, arg);
     return {};
@@ -380,6 +390,7 @@ private:
   bool m_is_init_script_added{};
   bool m_is_size_set{};
   bool m_owns_window{};
+  decide_policy_navigation_ctx_t m_decide_policy_navigation_cb;
   navigation_error_ctx_t m_navigation_error_cb;
   static const int m_initial_width = 640;
   static const int m_initial_height = 480;

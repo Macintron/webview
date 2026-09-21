@@ -19,6 +19,14 @@ constexpr const auto html =
     navigation_error_callback
   </button>
 
+  <h2>Decide Policy Navigation</h2>
+  <a href="https://google.com">
+    <button>Blocked</button>
+  </a>
+  <a href="https://webkit.org" target="_blank" rel="noopener">
+    <button>New Window</button>
+  </a>
+
   <h2>Message</h2>
   <div id="message" class="message"></div>
 </body>
@@ -75,6 +83,20 @@ int main() {
           }
           // Further handling of Webengine.
           return false;
+        },
+        nullptr);
+
+    // Handle Navigation
+    w.set_decide_policy_navigation_callback(
+        [&](const char *url, bool /*triggeredByReload*/,
+            void * /*arg*/) -> bool {
+          // Don't be evil
+          const bool allow =
+              std::string(url).find("google.com") == std::string::npos;
+          const auto msg =
+              std::string(allow ? "Allow" : "Decline") + ": " + url;
+          w.eval("showMessage('" + msg + "');");
+          return allow;
         },
         nullptr);
 

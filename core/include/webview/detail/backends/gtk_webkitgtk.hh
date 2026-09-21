@@ -306,7 +306,26 @@ private:
     auto on_view_decide_policy =
         +[](WebKitWebView *, WebKitPolicyDecision *decision,
             WebKitPolicyDecisionType type, gpointer arg) -> gboolean {
-      if (type == WEBKIT_POLICY_DECISION_TYPE_RESPONSE) {
+      if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION) {
+        WebKitNavigationPolicyDecision *navigationDecision =
+            WEBKIT_NAVIGATION_POLICY_DECISION(decision);
+        WebKitNavigationAction *action =
+            webkit_navigation_policy_decision_get_navigation_action(
+                navigationDecision);
+        WebKitURIRequest *request =
+            webkit_navigation_action_get_request(action);
+        WebKitNavigationType navType =
+            webkitgtk_compat::get_navigation_type(navigationDecision);
+        const bool triggeredByReload = navType == WEBKIT_NAVIGATION_TYPE_RELOAD;
+        const gchar *url = webkit_uri_request_get_uri(request);
+        auto *w = static_cast<gtk_webkit_engine *>(arg);
+        if (w && !w->get_decide_policy_navigation_callback().call<true>(
+                     url, triggeredByReload)) {
+          webkit_policy_decision_ignore(decision);
+        }
+        return TRUE; // Return TRUE to stop further handling
+
+      } else if (type == WEBKIT_POLICY_DECISION_TYPE_RESPONSE) {
         WebKitResponsePolicyDecision *response =
             WEBKIT_RESPONSE_POLICY_DECISION(decision);
         WebKitURIResponse *res =
@@ -320,11 +339,43 @@ private:
             return TRUE; // Return TRUE to stop further handling
           }
         }
+
+      } else if (type == WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION) {
+        WebKitNavigationPolicyDecision *navigationDecision =
+            WEBKIT_NAVIGATION_POLICY_DECISION(decision);
+        WebKitNavigationAction *action =
+            webkit_navigation_policy_decision_get_navigation_action(
+                navigationDecision);
+        WebKitURIRequest *request =
+            webkit_navigation_action_get_request(action);
+        const gchar *url = webkit_uri_request_get_uri(request);
+        auto *w = static_cast<gtk_webkit_engine *>(arg);
+        gtk_compat::window_show_uri_in_default_browser(GTK_WINDOW(w->m_window),
+                                                       url);
+
+        webkit_policy_decision_ignore(decision);
+        return TRUE; // Return TRUE to stop further handling
       }
       return FALSE; // Making no decision results in webkit_policy_decision_use().
     };
     g_signal_connect(WEBKIT_WEB_VIEW(m_webview), "decide-policy",
                      G_CALLBACK(on_view_decide_policy), this);
+
+    // Add: handle new window requests (e.g. window.open with _blank)
+    auto on_create =
+        +[](WebKitWebView *web_view, WebKitNavigationAction *navigation_action,
+            gpointer arg) -> WebKitWebView * {
+      (void)web_view;
+      WebKitURIRequest *request =
+          webkit_navigation_action_get_request(navigation_action);
+      const gchar *url = webkit_uri_request_get_uri(request);
+      auto *w = static_cast<gtk_webkit_engine *>(arg);
+      gtk_compat::window_show_uri_in_default_browser(GTK_WINDOW(w->m_window),
+                                                     url);
+      return nullptr; // don't create new web view
+    };
+    g_signal_connect(WEBKIT_WEB_VIEW(m_webview), "create",
+                     G_CALLBACK(on_create), this);
 
 #if GTK_MAJOR_VERSION >= 4
     auto on_download_started = +[](WebKitNetworkSession *,

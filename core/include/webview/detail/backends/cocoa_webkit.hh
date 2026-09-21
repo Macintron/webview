@@ -46,6 +46,7 @@
 #include "../engine_base.hh"
 #include "../platform/darwin/cocoa/cocoa.hh"
 #include "../platform/darwin/objc/objc.hh"
+#include "../platform/darwin/objc/version.hh"
 #include "../platform/darwin/webkit/webkit.hh"
 #include "../user_script.hh"
 
@@ -362,6 +363,35 @@ private:
             NSInvocation_invoke(invocation);
           }),
           "v@:@@@@");
+
+      // Add: handle new window requests (e.g. window.open with _blank)
+      class_addMethod(
+          cls,
+          objc::selector("webView:createWebViewWithConfiguration:"
+                         "forNavigationAction:windowFeatures:"),
+          (IMP)(+[](id self, SEL, id webView, id configuration,
+                    id navigationAction, id windowFeatures) -> id {
+            // webView:           WKWebView
+            // configuration:     WKWebViewConfiguration
+            // navigationAction:  WKNavigationAction
+            // windowFeatures:    WKWindowFeatures
+            (void)self;
+            (void)webView;
+            (void)configuration;
+            (void)windowFeatures;
+            // Get the URL from the navigation action
+            id request =
+                objc::msg_send<id>(navigationAction, objc::selector("request"));
+            id url = objc::msg_send<id>(request, objc::selector("URL"));
+            // NSWorkspace.sharedWorkspace.openURL(url)
+            id workspace =
+                objc::msg_send<id>(objc::get_class("NSWorkspace"),
+                                   objc::selector("sharedWorkspace"));
+            objc::msg_send<void>(workspace, objc::selector("openURL:"), url);
+
+            return nullptr;
+          }),
+          "@@:@@@@"); // return id, receiver, sel, 4 args
       objc_registerClassPair(cls);
     }
     return objc::Class_new(cls);
@@ -375,6 +405,55 @@ private:
       cls = objc_allocateClassPair(objc::get_class("NSObject"), class_name, 0);
       class_addProtocol(cls, objc_getProtocol("WKNavigationDelegate"));
       class_addProtocol(cls, objc_getProtocol("WKDownloadDelegate"));
+      class_addMethod(
+          cls,
+          objc::selector(
+              "webView:decidePolicyForNavigationAction:decisionHandler:"),
+          (IMP)(+[](id self, SEL, id webView, id navigationAction,
+                    id decisionHandler) {
+            // webView:             WKWebView
+            // navigationAction:    WKNavigationAction
+            // decisionHandler:     void (^decisionHandler)(WKNavigationActionPolicy)
+            (void)(webView);
+            WKNavigationActionPolicy policy = WKNavigationActionPolicyAllow;
+            if (objc::macos_at_least(11, 3)) {
+              if (WKNavigationAction_shouldPerformDownload(navigationAction)) {
+                policy = WKNavigationActionPolicyDownload;
+              }
+            } else {
+              // for old macos, hope this is enough
+              auto request = WKNavigationResponse_request(navigationAction);
+              auto url = NSURLRequest_URL(request);
+              auto scheme = NSURL_scheme(url);
+              if (NSString_isEqualToString(
+                      scheme, NSString_stringWithUTF8String("blob"))) {
+                policy = WKNavigationActionPolicyDownload;
+              }
+            }
+            const WKNavigationType navType =
+                WKNavigationAction_navigationType(navigationAction);
+            const bool triggeredByReload = navType == WKNavigationTypeReload;
+            if (policy != WKNavigationActionPolicyDownload) {
+              auto request = WKNavigationResponse_request(navigationAction);
+              auto url = NSURLRequest_URL(request);
+              const char *utf8Url =
+                  NSString_get_UTF8String(NSURL_absoluteString(url));
+              const cocoa_wkwebview_engine *engine =
+                  get_associated_webview(self);
+              if (engine &&
+                  !engine->get_decide_policy_navigation_callback().call<true>(
+                      utf8Url, triggeredByReload)) {
+                policy = WKNavigationActionPolicyCancel;
+              }
+            }
+            // Invoke the decision handler block.
+            auto sig{NSMethodSignature_signatureWithObjCTypes("v@?@")};
+            auto invocation{NSInvocation_invocationWithMethodSignature(sig)};
+            NSInvocation_set_target(invocation, decisionHandler);
+            NSInvocation_setArgument(invocation, &policy, 1);
+            NSInvocation_invoke(invocation);
+          }),
+          "v@:@@?");
       class_addMethod(
           cls,
           objc::selector(

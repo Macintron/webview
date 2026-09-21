@@ -38,14 +38,42 @@ namespace webview {
 namespace detail {
 namespace webkit {
 
+enum WKNavigationActionPolicy : NSInteger {
+  WKNavigationActionPolicyCancel,
+  WKNavigationActionPolicyAllow,
+  WKNavigationActionPolicyDownload // API_AVAILABLE(macos(11.3), ios(14.5))
+};
+
 enum WKNavigationResponsePolicy : NSInteger {
   WKNavigationResponsePolicyCancel,
   WKNavigationResponsePolicyAllow,
   WKNavigationResponsePolicyDownload // API_AVAILABLE(macos(11.3), ios(14.5)),
 };
 
+inline bool WKNavigationAction_shouldPerformDownload(id self) {
+  return objc::msg_send<bool>(self, objc::selector("shouldPerformDownload"));
+}
+
+inline id WKNavigationResponse_request(id self) {
+  return objc::msg_send<id>(self, objc::selector("request"));
+}
+
 inline id WKNavigationResponse_response(id self) {
   return objc::msg_send<id>(self, objc::selector("response"));
+}
+
+enum WKNavigationType : NSInteger {
+  WKNavigationTypeLinkActivated,
+  WKNavigationTypeFormSubmitted,
+  WKNavigationTypeBackForward,
+  WKNavigationTypeReload,
+  WKNavigationTypeFormResubmitted,
+  WKNavigationTypeOther = -1,
+};
+
+inline WKNavigationType WKNavigationAction_navigationType(id self) {
+  return objc::msg_send<WKNavigationType>(self,
+                                          objc::selector("navigationType"));
 }
 
 } // namespace webkit
