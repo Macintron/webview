@@ -366,6 +366,52 @@ private:
     }
     return objc::Class_new(cls);
   }
+  static id create_webkit_navigation_delegate() {
+    objc::autoreleasepool arp;
+    constexpr auto class_name = "webviewWKNavigationDelegate";
+    // Avoid crash due to registering same class twice
+    auto cls = objc_lookUpClass(class_name);
+    if (!cls) {
+      cls = objc_allocateClassPair(objc::get_class("NSObject"), class_name, 0);
+      class_addProtocol(cls, objc_getProtocol("WKNavigationDelegate"));
+      class_addMethod(
+          cls,
+          objc::selector(
+              "webView:decidePolicyForNavigationResponse:decisionHandler:"),
+          (IMP)(+[](id self, SEL, id webView, id navigationResponse,
+                    void (^decisionHandler)(WKNavigationResponsePolicy)) {
+            // webView:             WKWebView
+            // navigationResponse:  WKNavigationResponse
+            // decisionHandler:     void (^decisionHandler)(WKNavigationResponsePolicy)
+            (void)(webView);
+            objc::autoreleasepool arp;
+            WKNavigationResponsePolicy policy = WKNavigationResponsePolicyAllow;
+            id response = WKNavigationResponse_response(navigationResponse);
+            if (objc::is_kind_of_class(response, "NSHTTPURLResponse")) {
+              NSInteger statusCode = NSHTTPURLResponse_statusCode(response);
+              if (statusCode != 200) {
+                const cocoa_wkwebview_engine *engine =
+                    get_associated_webview(self);
+                if (engine &&
+                    engine->get_navigation_error_callback().call<false>(
+                        static_cast<int>(statusCode))) {
+                  policy = WKNavigationResponsePolicyCancel;
+                }
+              }
+            }
+            // Invoke the decision handler block (NSInvocation would would work as well)
+            decisionHandler(policy);
+            // auto sig{NSMethodSignature_signatureWithObjCTypes("v@?@")};
+            // auto invocation{NSInvocation_invocationWithMethodSignature(sig)};
+            // NSInvocation_set_target(invocation, decisionHandler);
+            // NSInvocation_setArgument(invocation, &policy, 1);
+            // NSInvocation_invoke(invocation);
+          }),
+          "v@:@@?");
+      objc_registerClassPair(cls);
+    }
+    return objc::Class_new(cls);
+  }
   static id create_window_delegate() {
     objc::autoreleasepool arp;
     constexpr auto class_name = "WebviewNSWindowDelegate";
@@ -493,6 +539,10 @@ private:
     set_associated_webview(ui_delegate, this);
     WKWebView_set_UIDelegate(m_webview, ui_delegate);
 
+    auto navigation_delegate = create_webkit_navigation_delegate();
+    set_associated_webview(navigation_delegate, this);
+    WKWebView_set_NavigationDelegate(m_webview, navigation_delegate);
+
     if (debug) {
       // Explicitly make WKWebView inspectable via Safari on OS versions that
       // disable the feature by default (macOS 13.3 and later) and support
@@ -604,13 +654,13 @@ private:
     }
   }
 
-  id m_app{};
-  id m_app_delegate{};
-  id m_window_delegate{};
-  id m_window{};
-  id m_widget{};
-  id m_webview{};
-  id m_manager{};
+  id m_app{};             // NSApplication
+  id m_app_delegate{};    // WebviewAppDelegate
+  id m_window_delegate{}; // WebviewNSWindowDelegate
+  id m_window{};          // NSWindow
+  id m_widget{};          // NSView
+  id m_webview{};         // WKWebView
+  id m_manager{};         // WKUserContentController
   bool m_is_window_shown{};
 };
 

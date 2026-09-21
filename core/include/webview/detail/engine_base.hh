@@ -31,6 +31,7 @@
 #include "../errors.hh"
 #include "../types.h"
 #include "../types.hh"
+#include "callbacks.hh"
 #include "json.hh"
 #include "user_script.hh"
 
@@ -127,6 +128,14 @@ window.__webview__.onUnbind(" +
           eval(js);
         },
         result.empty() ? "undefined" : json_escape(result)));
+  }
+
+  noresult set_navigation_error_callback(navigation_error_t fn, void *arg) {
+    m_navigation_error_cb = navigation_error_ctx_t(fn, arg);
+    return {};
+  }
+  const navigation_error_ctx_t &get_navigation_error_callback() const {
+    return m_navigation_error_cb;
   }
 
   result<void *> window() { return window_impl(); }
@@ -371,6 +380,7 @@ private:
   bool m_is_init_script_added{};
   bool m_is_size_set{};
   bool m_owns_window{};
+  navigation_error_ctx_t m_navigation_error_cb;
   static const int m_initial_width = 640;
   static const int m_initial_height = 480;
 };

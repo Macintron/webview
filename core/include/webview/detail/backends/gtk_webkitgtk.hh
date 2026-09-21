@@ -303,6 +303,28 @@ private:
     add_init_script("function(message) {\n\
   return window.webkit.messageHandlers.__webview__.postMessage(message);\n\
 }");
+    auto on_view_decide_policy =
+        +[](WebKitWebView *, WebKitPolicyDecision *decision,
+            WebKitPolicyDecisionType type, gpointer arg) -> gboolean {
+      if (type == WEBKIT_POLICY_DECISION_TYPE_RESPONSE) {
+        WebKitResponsePolicyDecision *response =
+            WEBKIT_RESPONSE_POLICY_DECISION(decision);
+        WebKitURIResponse *res =
+            webkit_response_policy_decision_get_response(response);
+        guint statusCode = webkit_uri_response_get_status_code(res);
+        if (statusCode != SOUP_STATUS_OK) { // ignore 'Ok'
+          auto *w = static_cast<gtk_webkit_engine *>(arg);
+          if (w && w->get_navigation_error_callback().call<false>(
+                       static_cast<int>(statusCode))) {
+            webkit_policy_decision_ignore(decision);
+            return TRUE; // Return TRUE to stop further handling
+          }
+        }
+      }
+      return FALSE; // Making no decision results in webkit_policy_decision_use().
+    };
+    g_signal_connect(WEBKIT_WEB_VIEW(m_webview), "decide-policy",
+                     G_CALLBACK(on_view_decide_policy), this);
   }
 
   void window_settings(bool debug) {

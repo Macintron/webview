@@ -238,6 +238,19 @@ WEBVIEW_API webview_error_t webview_return(webview_t w, const char *id,
                                            int status, const char *result);
 
 /**
+ * Register a function to get notified about navigation errors.
+ * In the callback, httpStatusCode could be 403 (forbidden).
+ * arg is the context provided while setting the callback.
+ * return true to abort navigation.
+ *
+ * @param w The webview instance.
+ * @param fn Callback function.
+ * @param arg User argument.
+ */
+WEBVIEW_API webview_error_t webview_set_navigation_error_callback(
+    webview_t w, int (*fn)(int httpStatusCode, void *arg), void *arg);
+
+/**
  * Get the library's version information.
  *
  * @since 0.10

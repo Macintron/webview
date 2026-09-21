@@ -89,6 +89,7 @@ class webview2_com_handler
     : public ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler,
       public ICoreWebView2CreateCoreWebView2ControllerCompletedHandler,
       public ICoreWebView2WebMessageReceivedEventHandler,
+      public ICoreWebView2WebResourceResponseReceivedEventHandler,
       public ICoreWebView2PermissionRequestedEventHandler {
   using webview2_com_handler_cb_t =
       std::function<void(ICoreWebView2Controller *, ICoreWebView2 *webview)>;
@@ -165,8 +166,17 @@ public:
     ICoreWebView2 *webview;
     ::EventRegistrationToken token;
     controller->get_CoreWebView2(&webview);
-    webview->add_WebMessageReceived(this, &token);
-    webview->add_PermissionRequested(this, &token);
+
+    // Query for the ICoreWebView2_10 interface
+    ICoreWebView2_10 *webview10{};
+    if (SUCCEEDED(webview->QueryInterface(IID_PPV_ARGS(&webview10)))) {
+      webview10->add_WebMessageReceived(this, &token);
+      webview10->add_WebResourceResponseReceived(this, &token);
+      webview10->add_PermissionRequested(this, &token);
+    } else {
+      throw exception{WEBVIEW_ERROR_MISSING_DEPENDENCY,
+                      "WebView2 is unavailable"};
+    }
 
     m_cb(controller, webview);
     return S_OK;
@@ -183,6 +193,30 @@ public:
     CoTaskMemFree(message);
     return S_OK;
   }
+
+  HRESULT STDMETHODCALLTYPE
+  Invoke(ICoreWebView2 * /*sender*/,
+         ICoreWebView2WebResourceResponseReceivedEventArgs *args) {
+    ICoreWebView2WebResourceResponseView *response{};
+    args->get_Response(&response);
+    int statusCode{};
+    response->get_StatusCode(&statusCode);
+    if (statusCode != 200 && m_navigation_error_handler) { // ignore 'Ok'
+      // ICoreWebView2WebResourceRequest* request {};
+      // args->get_Request(&request);
+      // LPWSTR uriw{};
+      // request->get_Uri(&uriw);
+      // const std::string uri = narrow_string(uriw);
+      // CoTaskMemFree(uriw);
+      // qWarning("  request status=%d, url=%s", statusCode, std::string(uri.begin(), uri.begin() + std::min(size_t(300), uri.size())).data());
+      bool res = m_navigation_error_handler(statusCode);
+      if (res) {
+        return E_FAIL;
+      }
+    }
+    return S_OK;
+  }
+
   HRESULT STDMETHODCALLTYPE
   Invoke(ICoreWebView2 * /*sender*/,
          ICoreWebView2PermissionRequestedEventArgs *args) {
@@ -198,6 +232,11 @@ public:
   // the WebView2 environment.
   void set_attempt_handler(std::function<HRESULT()> attempt_handler) noexcept {
     m_attempt_handler = attempt_handler;
+  }
+  // Set the function that will be called on navigation error events.
+  void set_navigation_error_handler(
+      std::function<bool(int)> navigation_error_handler) noexcept {
+    m_navigation_error_handler = navigation_error_handler;
   }
 
   // Retry creating a WebView2 environment.
@@ -234,6 +273,7 @@ private:
   webview2_com_handler_cb_t m_cb;
   std::atomic<ULONG> m_ref_count{1};
   std::function<HRESULT()> m_attempt_handler;
+  std::function<bool(int)> m_navigation_error_handler;
   unsigned int m_max_attempts = 60;
   unsigned int m_sleep_ms = 200;
   unsigned int m_attempts = 0;
@@ -758,6 +798,9 @@ private:
       return m_webview2_loader.create_environment_with_options(
           nullptr, userDataFolder, nullptr, m_com_handler);
     });
+    m_com_handler->set_navigation_error_handler([this](int httpErrorCode) {
+      return get_navigation_error_callback().call<false>(httpErrorCode);
+    });
     m_com_handler->try_create_environment();
 
     // Pump the message loop until WebView2 has finished initialization.
@@ -786,6 +829,12 @@ private:
     if (res != S_OK) {
       return error_info{WEBVIEW_ERROR_UNSPECIFIED,
                         "put_AreDevToolsEnabled failed"};
+    }
+    // disable context menu (Back, Refresh, Save as, Print, More Tools, ...)
+    res = settings->put_AreDefaultContextMenusEnabled(debug ? TRUE : FALSE);
+    if (res != S_OK) {
+      return error_info{WEBVIEW_ERROR_UNSPECIFIED,
+                        "put_AreDefaultContextMenusEnabled failed"};
     }
     res = settings->put_IsStatusBarEnabled(FALSE);
     if (res != S_OK) {

@@ -33,6 +33,7 @@
 #if defined(WEBVIEW_PLATFORM_DARWIN) && defined(WEBVIEW_COCOA)
 
 // IWYU pragma: begin_exports
+#include "WKNavigation.hh"
 #include "WKOpenPanelParameters.hh"
 #include "WKScriptMessage.hh"
 #include "WKUserContentController.hh"

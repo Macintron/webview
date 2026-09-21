@@ -23,8 +23,8 @@
  * SOFTWARE.
  */
 
-#ifndef WEBVIEW_PLATFORM_DARWIN_COCOA_COCOA_HH
-#define WEBVIEW_PLATFORM_DARWIN_COCOA_COCOA_HH
+#ifndef WEBVIEW_PLATFORM_DARWIN_WEBKIT_WKWNAVIGATION_HH
+#define WEBVIEW_PLATFORM_DARWIN_WEBKIT_WKWNAVIGATION_HH
 
 #if defined(__cplusplus) && !defined(WEBVIEW_HEADER)
 
@@ -32,30 +32,26 @@
 
 #if defined(WEBVIEW_PLATFORM_DARWIN) && defined(WEBVIEW_COCOA)
 
-// IWYU pragma: begin_exports
-#include "NSApplication.hh"
-#include "NSBundle.hh"
-#include "NSEvent.hh"
-#include "NSInvocation.hh"
-#include "NSLog.hh"
-#include "NSMethodSignature.hh"
-#include "NSNotification.hh"
-#include "NSNumber.hh"
-#include "NSObject.hh"
-#include "NSOpenPanel.hh"
-#include "NSPoint.hh"
-#include "NSRect.hh"
-#include "NSSavePanel.hh"
-#include "NSSize.hh"
-#include "NSString.hh"
-#include "NSURL.hh"
-#include "NSURLRequest.hh"
-#include "NSURLResponse.hh"
-#include "NSValue.hh"
-#include "NSView.hh"
-#include "NSWindow.hh"
-// IWYU pragma: end_exports
+#include "../objc/objc.hh"
+
+namespace webview {
+namespace detail {
+namespace webkit {
+
+enum WKNavigationResponsePolicy : NSInteger {
+  WKNavigationResponsePolicyCancel,
+  WKNavigationResponsePolicyAllow,
+  WKNavigationResponsePolicyDownload // API_AVAILABLE(macos(11.3), ios(14.5)),
+};
+
+inline id WKNavigationResponse_response(id self) {
+  return objc::msg_send<id>(self, objc::selector("response"));
+}
+
+} // namespace webkit
+} // namespace detail
+} // namespace webview
 
 #endif // defined(WEBVIEW_PLATFORM_DARWIN) && defined(WEBVIEW_COCOA)
 #endif // defined(__cplusplus) && !defined(WEBVIEW_HEADER)
-#endif // WEBVIEW_PLATFORM_DARWIN_COCOA_COCOA_HH
+#endif // WEBVIEW_PLATFORM_DARWIN_WEBKIT_WKWNAVIGATION_HH

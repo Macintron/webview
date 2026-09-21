@@ -250,6 +250,14 @@ WEBVIEW_API webview_error_t webview_return(webview_t w, const char *id,
       [=] { return cast_to_webview(w)->resolve(id, status, result); });
 }
 
+WEBVIEW_API webview_error_t webview_set_navigation_error_callback(
+    webview_t w, bool (*fn)(int httpStatusCode, void *arg), void *arg) {
+  using namespace webview::detail;
+  return api_filter([=] {
+    return cast_to_webview(w)->set_navigation_error_callback(fn, arg);
+  });
+}
+
 WEBVIEW_API const webview_version_info_t *webview_version(void) {
   return &webview::detail::library_version_info;
 }

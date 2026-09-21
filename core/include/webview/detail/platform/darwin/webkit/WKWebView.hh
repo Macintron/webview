@@ -64,6 +64,11 @@ inline void WKWebView_set_UIDelegate(id self, id ui_delegate) {
   objc::msg_send<void>(self, objc::selector("setUIDelegate:"), ui_delegate);
 }
 
+inline void WKWebView_set_NavigationDelegate(id self, id navigation_delegate) {
+  objc::msg_send<void>(self, objc::selector("setNavigationDelegate:"),
+                       navigation_delegate);
+}
+
 inline id WKWebView_loadHTMLString(id self, id string, id base_url) {
   return objc::msg_send<id>(self, objc::selector("loadHTMLString:baseURL:"),
                             string, base_url);
@@ -97,6 +102,22 @@ inline void WKWebView_set_inspectable(id self, bool inspectable) {
 #else
 #error __has_builtin not supported by compiler
 #endif
+}
+
+inline id WKWebView_window(id self) {
+  return objc::msg_send<id>(self, objc::selector("window"));
+}
+
+inline id WKWebView_reload(id self) {
+  return objc::msg_send<id>(self, objc::selector("reload"));
+}
+
+inline id WKWebView_go_back(id self) {
+  return objc::msg_send<id>(self, objc::selector("goBack"));
+}
+
+inline id WKWebView_go_forward(id self) {
+  return objc::msg_send<id>(self, objc::selector("goForward"));
 }
 
 } // namespace webkit
